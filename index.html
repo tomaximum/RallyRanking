@@ -1,19 +1,112 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RallyRanking</title>
+    <title>RallyRanking - OpenRally Tracker</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>RallyRanking</h1>
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <h1>RallyRanking</h1>
+            </div>
+            <nav class="actions">
+                <button id="btn-config" class="btn-secondary">Configuration</button>
+                <button id="btn-export" class="btn-primary" disabled>Exporter CSV</button>
+            </nav>
+        </div>
     </header>
-    <main>
-        <p>Bienvenue dans votre nouveau projet vierge.</p>
+
+    <main class="app-main">
+        <section class="dropzones">
+            <!-- Roadbook Zone -->
+            <div class="card dropzone" id="dropzone-roadbook">
+                <div class="dz-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+                <h3>Trace Roadbook (GPX)</h3>
+                <p>Glissez le roadbook OpenRally ici</p>
+                <input type="file" id="file-roadbook" accept=".gpx" hidden>
+                <div class="dz-status" id="status-roadbook">Aucun fichier</div>
+            </div>
+
+            <!-- Competitor Zone -->
+            <div class="card dropzone" id="dropzone-competitors">
+                <div class="dz-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <h3>Traces Concurrents (GPX)</h3>
+                <p>Glissez une ou plusieurs traces ici</p>
+                <input type="file" id="file-competitors" accept=".gpx" multiple hidden>
+                <div class="dz-status" id="status-competitors">0 fichier(s)</div>
+            </div>
+        </section>
+
+        <!-- Configuration Modal (Hidden by default) -->
+        <dialog id="config-modal" class="modal">
+            <div class="modal-content">
+                <h2>Configuration des Pénalités</h2>
+                <form id="config-form">
+                    <div class="form-group">
+                        <label>Pénalité Waypoint manqué (s)</label>
+                        <input type="number" id="cfg-missed-wpt" value="900">
+                    </div>
+                    <div class="form-group">
+                        <label>Vitesse Globale Limitée (km/h)</label>
+                        <input type="number" id="cfg-speed-limit" value="130">
+                    </div>
+                    <div class="form-group">
+                        <label>Coefficient Pénalité Survitesse (s par km/h)</label>
+                        <input type="number" id="cfg-speed-coef" value="60">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="btn-close-config">Fermer</button>
+                        <button type="submit" class="btn-primary">Sauvegarder</button>
+                    </div>
+                </form>
+            </div>
+        </dialog>
+
+        <!-- Dashboard / Results -->
+        <section class="results-dashboard">
+            <div class="card full-width">
+                <h2>Classement Provisoire</h2>
+                <div class="table-container">
+                    <table id="ranking-table">
+                        <thead>
+                            <tr>
+                                <th>Rang</th>
+                                <th>Concurrent</th>
+                                <th>Temps Brut</th>
+                                <th>Neutralisation</th>
+                                <th>Pénalités</th>
+                                <th>Temps Corrigé</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-body">
+                            <tr><td colspan="7" class="empty-state">Importez d'abord le roadbook, puis les traces des concurrents.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Hidden Map for PDF Generation -->
+        <div id="pdf-map-container" style="display: none; width: 800px; height: 600px;"></div>
     </main>
-    <script src="script.js"></script>
+
+    <!-- Libs -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- App Logic -->
+    <script type="module" src="src/ui/app.js"></script>
 </body>
 </html>
