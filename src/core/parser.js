@@ -91,17 +91,33 @@ export class GPXParser {
               for (let i = 0; i < children.length; i++) {
                   const child = children[i];
                   const prefix = child.prefix || (child.nodeName.includes(':') ? child.nodeName.split(':')[0] : '');
+                  const localName = child.localName ? child.localName.toLowerCase() : '';
+                  const nodeNameLower = child.nodeName.toLowerCase();
                   
-                  // Si préfixe openrally ou type reconnu
-                  if (prefix === 'openrally' || ['dss', 'ass', 'dz', 'fz', 'wpm', 'wpe', 'wps', 'wpc', 'wpv', 'wpp', 'wpn', 'checkpoint', 'dn', 'fn', 'dt', 'ft'].includes(child.localName)) {
+                  // Verification si c'est la balise du type de waypoint
+                  // On trouve la balise si elle a open et clear, OU si c'est un nom connu
+                  const isKnownType = ['dss', 'ass', 'dz', 'fz', 'wpm', 'wpe', 'wps', 'wpc', 'wpv', 'wpp', 'wpn', 'checkpoint', 'dn', 'fn', 'dt', 'ft'].includes(localName);
+                  const hasProps = child.hasAttribute('open') || child.hasAttribute('clear');
+
+                  // Si c'est un tag OpenRally décrivant le waypoint scoring
+                  if ((prefix === 'openrally' || isKnownType) && (hasProps || isKnownType)) {
                       orNode = child;
-                      type = child.localName.toLowerCase();
+                      
+                      // Si on n'a pas encore défini de type fort, on le prend
+                      if (!type || isKnownType) {
+                          type = localName === 'waypointextension' ? null : localName;
+                      }
                       
                       if (child.hasAttribute('open')) openRaw = parseFloat(child.getAttribute('open'));
                       if (child.hasAttribute('clear')) clearRaw = parseFloat(child.getAttribute('clear'));
                       if (child.hasAttribute('speed')) speedLimit = parseFloat(child.getAttribute('speed'));
-                      break;
                   }
+
+                  // 1.b Support aussi de la structure enfant (<openrally:open>800</openrally:open>)
+                  if (localName === 'open' && child.textContent) openRaw = parseFloat(child.textContent);
+                  if (localName === 'clear' && child.textContent) clearRaw = parseFloat(child.textContent);
+                  if (localName === 'waypointtype' && child.textContent) type = child.textContent.toLowerCase().trim();
+                  if (localName === 'speed' && child.textContent) speedLimit = parseFloat(child.textContent);
               }
           }
 
@@ -127,13 +143,13 @@ export class GPXParser {
           if (speedLimit === null) speedLimit = this.extractFromDesc(desc, "S=");
 
           // Détermination de si c'est un waypoint de compétition ou juste une info visuelle
-          // Si on n'a ni OPEN ni CLEAR (malgré le XML et le Fallback DESC), ce n'est pas un waypoint validable
+          // Si on n'a ni OPEN ni CLEAR, ce n'est pas un waypoint validable
           let isScoringWpt = true;
           if (open === null && clear === null) {
               isScoringWpt = false;
           }
 
-          // Defaults en cas de valeur partiel
+          // Defaults en cas de valeur partielle
           if (open === null) open = Math.max(800, clear || 0);
           if (clear === null) clear = 90;
 
