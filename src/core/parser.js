@@ -66,7 +66,8 @@ export class GPXParser {
 
   static extractWaypoints(xml) {
       const wpts = Array.from(xml.getElementsByTagName("wpt"));
-      return wpts.map(wpt => {
+      
+      let parsedWpts = wpts.map(wpt => {
           const lat = parseFloat(wpt.getAttribute("lat"));
           const lon = parseFloat(wpt.getAttribute("lon"));
           const nameNode = wpt.getElementsByTagName("name")[0];
@@ -74,43 +75,82 @@ export class GPXParser {
           const descNode = wpt.getElementsByTagName("desc")[0];
           const desc = descNode ? descNode.textContent : "";
 
-          // Lecture des extensions OpenRally
-          const typeNode = this.getExtNode(wpt, "waypointType");
-          const type = typeNode ? typeNode.textContent.toLowerCase().trim() : "wpm";
+          let type = null;
+          let openRaw = null;
+          let clearRaw = null;
+          let speedLimit = null;
+          let timecontrol = null;
+          let neutralization = null;
 
-          const openNode = this.getExtNode(wpt, "open");
-          const clearNode = this.getExtNode(wpt, "clear");
-          const speedNode = this.getExtNode(wpt, "speed"); // Often inside speedType
+          // 1. Recherche du noeud OpenRally (ex: <openrally:dss open="800" clear="90">)
+          const ext = wpt.getElementsByTagName("extensions")[0];
+          let orNode = null;
+          
+          if (ext) {
+              const children = ext.children;
+              for (let i = 0; i < children.length; i++) {
+                  const child = children[i];
+                  const prefix = child.prefix || (child.nodeName.includes(':') ? child.nodeName.split(':')[0] : '');
+                  
+                  // Si préfixe openrally ou type reconnu
+                  if (prefix === 'openrally' || ['dss', 'ass', 'dz', 'fz', 'wpm', 'wpe', 'wps', 'wpc', 'wpv', 'wpp', 'wpn', 'checkpoint', 'dn', 'fn', 'dt', 'ft'].includes(child.localName)) {
+                      orNode = child;
+                      type = child.localName.toLowerCase();
+                      
+                      if (child.hasAttribute('open')) openRaw = parseFloat(child.getAttribute('open'));
+                      if (child.hasAttribute('clear')) clearRaw = parseFloat(child.getAttribute('clear'));
+                      if (child.hasAttribute('speed')) speedLimit = parseFloat(child.getAttribute('speed'));
+                      break;
+                  }
+              }
+          }
+
+          // 2. Recherche des autres balises spécifiques (timecontrol, neutralization, speed) si non trouvées
+          if (speedLimit === null) {
+              const spNode = this.getExtNode(wpt, "speed");
+              if (spNode && spNode.textContent) speedLimit = parseFloat(spNode.textContent);
+          }
+          
           const tcNode = this.getExtNode(wpt, "timecontrol");
-          const neutralNode = this.getExtNode(wpt, "neutralization"); // Often inside timeType
+          if (tcNode && tcNode.hasAttribute("allowed")) {
+              timecontrol = parseFloat(tcNode.getAttribute("allowed"));
+          }
 
-          // Parse with rally navigator fallback if extensions are missing
-          let open = openNode ? parseFloat(openNode.textContent) : this.extractFromDesc(desc, "O=");
-          let clear = clearNode ? parseFloat(clearNode.textContent) : this.extractFromDesc(desc, "C=");
-          let speed = speedNode ? parseFloat(speedNode.textContent) : this.extractFromDesc(desc, "S=");
-          
-          let timecontrol = tcNode ? parseFloat(tcNode.getAttribute("allowed")) : null; // in minutes
-          if (isNaN(timecontrol)) timecontrol = null;
-          
-          let neutralization = neutralNode ? parseFloat(neutralNode.textContent) : null; // in seconds
+          const neutralNode = this.getExtNode(wpt, "neutralization");
+          if (neutralNode && neutralNode.textContent) {
+              neutralization = parseFloat(neutralNode.textContent);
+          }
 
-          // Default radius if nothing is provided
-          if (!open) open = Math.max(800, clear || 0); // OpenRally default or logical
-          if (!clear) clear = 90; // OpenRally default validation radius
+          // 3. Fallback "Rally Navigator" (desc) uniquement si absent du XML formel
+          let open = openRaw !== null ? openRaw : this.extractFromDesc(desc, "O=");
+          let clear = clearRaw !== null ? clearRaw : this.extractFromDesc(desc, "C=");
+          if (speedLimit === null) speedLimit = this.extractFromDesc(desc, "S=");
+
+          // Détermination de si c'est un waypoint de compétition ou juste une info visuelle
+          // Si on n'a ni OPEN ni CLEAR (malgré le XML et le Fallback DESC), ce n'est pas un waypoint validable
+          let isScoringWpt = true;
+          if (open === null && clear === null) {
+              isScoringWpt = false;
+          }
+
+          // Defaults en cas de valeur partiel
+          if (open === null) open = Math.max(800, clear || 0);
+          if (clear === null) clear = 90;
 
           return {
-              lat, 
-              lon, 
-              name, 
-              desc, 
-              type, 
+              lat, lon, name, desc, 
+              type: type || 'wpm', 
               open: parseFloat(open), 
               clear: parseFloat(clear), 
-              speedLimit: isNaN(speed) ? null : parseFloat(speed), // km/h
-              timecontrol: isNaN(timecontrol) ? null : timecontrol, 
-              neutralization: isNaN(neutralization) ? null : neutralization
+              speedLimit: isNaN(speedLimit) ? null : speedLimit,
+              timecontrol: isNaN(timecontrol) ? null : timecontrol,
+              neutralization: isNaN(neutralization) ? null : neutralization,
+              isScoringWpt
           };
       });
+
+      // Filtre : on expurge les cases du roadbook pur
+      return parsedWpts.filter(w => w.isScoringWpt);
   }
 
   static extractFromDesc(desc, prefix) {
