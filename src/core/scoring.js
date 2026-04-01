@@ -55,7 +55,9 @@ export class ScoringEngine {
             // 1. Waypoint Validation Validation (Look ahead for missed wpts)
             for (let j = nextWptIdx; j < wpts.length; j++) {
                 let w = wpts[j];
-                let d = GeoTools.distance(p_curr.lat, p_curr.lon, w.lat, w.lon);
+                // On utilise la distance au segment [p_prev, p_curr] 
+                // pour ne pas rater les WPTs traversés entre deux points d'échantillonnage GPS espacés.
+                let d = GeoTools.pointToSegmentDistance(w, p_prev, p_curr);
                 
                 if (d <= w.clear) {
                     // Validé !
