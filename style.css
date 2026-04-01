@@ -273,6 +273,51 @@ tbody tr:hover {
     border-color: var(--accent);
 }
 
+.config-fieldset {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.config-fieldset legend {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.grid-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 1rem;
+}
+
+.grid-input label {
+    display: inline-block;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.grid-input input {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.grid-input input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
 .form-actions {
     display: flex;
     justify-content: flex-end;

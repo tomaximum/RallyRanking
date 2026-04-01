@@ -138,7 +138,20 @@ class RallyApp {
 
     getConfig() {
         return {
-            missedWpt: parseInt(document.getElementById('cfg-missed-wpt').value) || 900,
+            wptPenalties: {
+                default: parseInt(document.getElementById('cfg-wpt-default').value) || 900,
+                wpm: parseInt(document.getElementById('cfg-wpt-wpm').value) || 900,
+                wpe: parseInt(document.getElementById('cfg-wpt-wpe').value) || 900,
+                wpv: parseInt(document.getElementById('cfg-wpt-wpv').value) || 900,
+                wps: parseInt(document.getElementById('cfg-wpt-wps').value) || 1200,
+                wpn: parseInt(document.getElementById('cfg-wpt-wpn').value) || 3600,
+                wpc: parseInt(document.getElementById('cfg-wpt-wpc').value) || 900,
+                dss: parseInt(document.getElementById('cfg-wpt-dss').value) || 3600,
+                ass: parseInt(document.getElementById('cfg-wpt-dss').value) || 3600,
+                dz: parseInt(document.getElementById('cfg-wpt-dz').value) || 900,
+                fz: parseInt(document.getElementById('cfg-wpt-dz').value) || 900,
+                checkpoint: parseInt(document.getElementById('cfg-wpt-cp').value) || 3600
+            },
             speedLimit: parseInt(document.getElementById('cfg-speed-limit').value) || 130,
             speedCoef: parseInt(document.getElementById('cfg-speed-coef').value) || 60
         };

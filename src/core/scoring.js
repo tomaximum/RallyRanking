@@ -6,6 +6,14 @@ export class ScoringEngine {
         this.config = config;
     }
 
+    getMissedWptPenalty(type) {
+        let t = type ? type.toLowerCase() : '';
+        if (this.config.wptPenalties[t] !== undefined) {
+            return this.config.wptPenalties[t];
+        }
+        return this.config.wptPenalties.default || 900;
+    }
+
     calculateCompetitor(competitor) {
         let tracks = competitor.tracks;
         let wpts = this.roadbook.waypoints;
@@ -59,8 +67,8 @@ export class ScoringEngine {
                         let missed = wpts[k];
                         result.penaltiesBox.push({
                             type: 'WPT_MISSED',
-                            desc: `Waypoint non validé: ${missed.name} (${missed.type})`,
-                            cost: this.config.missedWpt
+                            desc: `Waypoint non validé: ${missed.name} (${missed.type.toUpperCase()})`,
+                            cost: this.getMissedWptPenalty(missed.type)
                         });
                         result.wpLog.push({ waypoint: missed, status: 'MISSED' });
                     }
@@ -165,8 +173,8 @@ export class ScoringEngine {
             let missed = wpts[j];
             result.penaltiesBox.push({
                 type: 'WPT_MISSED',
-                desc: `Waypoint final non atteint: ${missed.name}`,
-                cost: this.config.missedWpt
+                desc: `Waypoint non atteint: ${missed.name} (${missed.type.toUpperCase()})`,
+                cost: this.getMissedWptPenalty(missed.type)
             });
             result.wpLog.push({ waypoint: missed, status: 'NOT_REACHED' });
         }
