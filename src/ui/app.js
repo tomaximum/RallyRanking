@@ -153,7 +153,7 @@ class RallyApp {
                 checkpoint: parseInt(document.getElementById('cfg-wpt-cp').value) || 3600
             },
             speedLimit: parseInt(document.getElementById('cfg-speed-limit').value) || 130,
-            speedCoef: parseInt(document.getElementById('cfg-speed-coef').value) || 60
+            speedCoef: parseFloat(document.getElementById('cfg-speed-coef').value) || 1
         };
     }
 

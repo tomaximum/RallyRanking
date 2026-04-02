@@ -139,15 +139,13 @@ export class ScoringEngine {
             // 2. Speed checking
             let v = GeoTools.speed(p_prev, p_curr);
             let limit = currentSpeedLimit;
-            
-            // On calcule seulement si vitesse anormale
+
+            // Pénalité proportionnelle : (km/h en trop) × (durée en s) × coef
+            // coef = 1 → 1 km/h de dépassement pendant 1s = 1s de pénalité
             if (limit && v > limit) {
                 let over = v - limit;
                 let dtSeconds = (p_curr.time - p_prev.time) / 1000;
-                // Formule: km/h au dessus * dt * coeff
-                // coef par defaut: p. ex 0.05 seconde de penalty par m traversé... 
-                // On utilise config.speedCoef
-                let pen = over * dtSeconds * (this.config.speedCoef / 60); 
+                let pen = over * dtSeconds * this.config.speedCoef;
 
                 // Optimisation: On regroupe les pénalités en segments continus sinon on a 10,000 pénalités
                 let lastPen = result.penaltiesBox[result.penaltiesBox.length - 1];

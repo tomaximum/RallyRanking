@@ -104,8 +104,8 @@
                         <input type="number" id="cfg-speed-limit" value="130">
                     </div>
                     <div class="form-group">
-                        <label>Coefficient Pénalité Survitesse (s par km/h)</label>
-                        <input type="number" id="cfg-speed-coef" value="60">
+                        <label>Coef Pénalité Survitesse<br><small style="font-weight:normal;color:#888">pén = km/h_en_trop × durée(s) × coef<br>ex : coef=1 → 4km/h pendant 30s = 120s</small></label>
+                        <input type="number" step="0.1" min="0.1" id="cfg-speed-coef" value="1">
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" id="btn-close-config">Fermer</button>
