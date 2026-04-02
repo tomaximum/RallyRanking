@@ -157,8 +157,11 @@ class RallyApp {
                 const exist = this.competitors.find(c => c.name === file.name);
                 if (!exist) {
                     this.competitors.push({
-                        name: file.name.replace('.gpx', ''),
-                        tracks: data.trackPoints
+                        name: file.name.replace('.gpx', '').replace('.GPX', ''),
+                        tracks: data.trackPoints,          // Pour le calcul (avec temps)
+                        displayTracks: data.routePoints,   // Pour l'affichage (tous les points)
+                        penalties: [],
+                        score: 0
                     });
                 }
             } catch(e) {
@@ -212,10 +215,15 @@ class RallyApp {
         for (let comp of this.competitors) {
             let res = engine.calculateCompetitor(comp);
             // Inclure les tracks dans le résultat pour que le PDF puisse tracer la trace
-            results.push({ name: comp.name, tracks: comp.tracks, ...res });
+            // On privilégie displayTracks (complet) pour le rendu visuel
+            results.push({ 
+                name: comp.name, 
+                tracks: comp.displayTracks || comp.tracks, 
+                ...res 
+            });
 
             // Afficher la trace sur la carte
-            this.rallyMap.renderCompetitor(comp.name, comp.tracks, res.wpLog);
+            this.rallyMap.renderCompetitor(comp.name, comp.displayTracks || comp.tracks, res.wpLog);
         }
 
         results.sort((a, b) => a.score - b.score);

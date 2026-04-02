@@ -36,10 +36,14 @@ export class GPXParser {
       }).filter(pt => pt.time !== null);
   }
 
-  // Tous les points de trace — pour l'affichage du roadbook sur la carte (pas de temps requis)
+  // Tous les points de trace — pour l'affichage du roadbook ou de la trace sur la carte (pas de temps requis)
   static extractRoutePoints(xml) {
+      // Tenter de récupérer trkpt (tracks) OU rtept (routes)
       const trkpts = Array.from(xml.getElementsByTagName('trkpt'));
-      return trkpts.map((pt, index) => {
+      const rtepts = Array.from(xml.getElementsByTagName('rtept'));
+      const allPts = trkpts.length >= rtepts.length ? trkpts : rtepts;
+      
+      return allPts.map((pt, index) => {
           const lat = parseFloat(pt.getAttribute('lat'));
           const lon = parseFloat(pt.getAttribute('lon'));
           return { id: index, lat, lon };

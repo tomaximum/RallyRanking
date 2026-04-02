@@ -35,7 +35,6 @@ export class RallyMap {
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             { attribution: '© Esri World Imagery', maxZoom: 19 }
         );
-        // Hybride = satellite + OSM labels en overlay
         const hybrid = L.layerGroup([
             L.tileLayer(
                 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -58,12 +57,17 @@ export class RallyMap {
         }).addTo(this.map);
 
         // ── Ré-appliquer les styles après un toggle du contrôle de couches ──
-        this.map.on('overlayadd overlayremove', () => {
-            // Quand une couche est rajoutée, s'assurer que les styles highlight sont corrects
-            if (this.highlightedName) {
-                this._applyHighlightStyles(this.highlightedName);
-            } else {
-                this._resetAllStyles();
+        this.map.on('overlayadd', (e) => {
+            // On cherche quel concurrent correspond à cette couche
+            const entry = Object.entries(this.competitorLayers).find(([n, v]) => v.group === e.layer);
+            if (entry) {
+                const [name, data] = entry;
+                // Si quelqu'un est mis en évidence, on applique le style correspondant (faded ou non)
+                if (this.highlightedName) {
+                    this._applyStyleToEntry(name, data, name === this.highlightedName);
+                } else {
+                    this._applyStyleToEntry(name, data, true); // Reset normal
+                }
             }
         });
     }
@@ -77,18 +81,16 @@ export class RallyMap {
         }
         this.roadbookLayer = L.layerGroup();
 
-        // Trace GPS du roadbook — trait plein épaisseur 5, haute visibilité
         if (trackPoints && trackPoints.length > 1) {
             const latlngs = trackPoints.map(p => [p.lat, p.lon]);
             L.polyline(latlngs, {
-                color: '#1565C0',   // bleu foncé
+                color: '#1565C0',
                 weight: 5,
                 opacity: 1,
                 lineJoin: 'round',
                 lineCap: 'round'
             }).addTo(this.roadbookLayer);
 
-            // Halo blanc dessous pour contraste sur fond sombre/satellite
             L.polyline(latlngs, {
                 color: '#FFFFFF',
                 weight: 8,
@@ -98,7 +100,6 @@ export class RallyMap {
             }).addTo(this.roadbookLayer);
         }
 
-        // Marqueurs WP
         waypoints.forEach((w, idx) => {
             const fillColor = this._wptColor(w.type);
             const marker = L.circleMarker([w.lat, w.lon], {
@@ -115,7 +116,6 @@ export class RallyMap {
             );
             marker.addTo(this.roadbookLayer);
 
-            // Numéro centré sur le marqueur
             L.marker([w.lat, w.lon], {
                 icon: L.divIcon({
                     className: '',
@@ -131,7 +131,6 @@ export class RallyMap {
         this._overlays['📍 Roadbook'] = this.roadbookLayer;
         this._layerControl.addOverlay(this.roadbookLayer, '📍 Roadbook');
 
-        // Zoom automatique
         const pts = (trackPoints && trackPoints.length > 0) ? trackPoints : waypoints.map(w => ({ lat: w.lat, lon: w.lon }));
         if (pts.length > 0) {
             this.map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])), { padding: [30, 30] });
@@ -152,10 +151,10 @@ export class RallyMap {
         this.removeCompetitor(name);
 
         const color = this.getColor(name);
-        const group = L.layerGroup();
+        // Utilisation de FeatureGroup pour un meilleur support des styles et bringToFront
+        const group = L.featureGroup();
         let polyline = null;
 
-        // Trace GPS — épaisseur 4, pleine opacité
         if (tracks && tracks.length > 1) {
             const latlngs = tracks.map(p => [p.lat, p.lon]);
             polyline = L.polyline(latlngs, {
@@ -169,7 +168,6 @@ export class RallyMap {
             polyline.addTo(group);
         }
 
-        // Marqueurs WP avec statut
         if (wpLog) {
             wpLog.forEach(entry => {
                 const w = entry.waypoint;
@@ -210,12 +208,9 @@ export class RallyMap {
         if (!entry) return;
         entry.color = newColor;
         this.competitorColors[name] = newColor;
-        // Mise à jour de la polyline
         if (entry.polyline) {
             entry.polyline.setStyle({ color: newColor });
         }
-        // Mise à jour du label dans le contrôle de couches
-        // Leaflet ne permet pas de modifier le label directement, on retire/rajoute
         this._layerControl.removeLayer(entry.group);
         this._layerControl.addOverlay(entry.group, `<span style="color:${newColor};font-size:1.1em">●</span> ${name}`);
     }
@@ -230,9 +225,10 @@ export class RallyMap {
 
     highlightCompetitor(name) {
         this.highlightedName = name;
-        this._applyHighlightStyles(name);
+        Object.entries(this.competitorLayers).forEach(([n, data]) => {
+            this._applyStyleToEntry(n, data, n === name);
+        });
 
-        // Zoom sur la trace sélectionnée
         const entry = this.competitorLayers[name];
         if (entry && entry.polyline) {
             const latlngs = entry.polyline.getLatLngs();
@@ -244,31 +240,28 @@ export class RallyMap {
 
     clearHighlight() {
         this.highlightedName = null;
-        this._resetAllStyles();
+        Object.entries(this.competitorLayers).forEach(([n, data]) => {
+            this._applyStyleToEntry(n, data, true);
+        });
     }
 
     // ── Styles internes ───────────────────────────────────────────────
 
-    _applyHighlightStyles(selectedName) {
-        Object.entries(this.competitorLayers).forEach(([n, { polyline }]) => {
-            if (!polyline || !this.map.hasLayer(polyline)) return;
-            const isSelected = n === selectedName;
-            polyline.setStyle({
-                opacity: isSelected ? 1 : 0.12,
-                weight:  isSelected ? 5 : 3
-            });
-            if (isSelected) polyline.bringToFront();
-        });
-    }
+    _applyStyleToEntry(name, data, isActive) {
+        const { polyline, group } = data;
+        if (!polyline) return;
 
-    _resetAllStyles() {
-        Object.values(this.competitorLayers).forEach(({ polyline }) => {
-            if (!polyline || !this.map.hasLayer(polyline)) return;
-            polyline.setStyle({ opacity: 1, weight: 4 });
+        // Mise à jour de l'opacité et de l'épaisseur
+        polyline.setStyle({
+            opacity: isActive ? 1 : 0.12,
+            weight: isActive ? 5 : 3
         });
-    }
 
-    // ── Helpers ───────────────────────────────────────────────────────
+        // Gestion de l'ordre d'affichage (Z-index)
+        if (isActive) {
+            group.bringToFront();
+        }
+    }
 
     _wptColor(type) {
         const colors = {
