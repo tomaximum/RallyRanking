@@ -202,12 +202,21 @@ class RallyApp {
             btnPdf.style.padding = '0.2rem 0.5rem';
             btnPdf.onclick = () => ExportTools.generatePDF(r, engine);
 
+            let missedCount = r.penaltiesBox.filter(p => p.type === 'WPT_MISSED').length;
+            let speedCount = r.penaltiesBox.filter(p => p.type === 'OVERSPEED').length;
+            let otherCount = r.penaltiesBox.length - missedCount - speedCount;
+            let errText = [];
+            if (missedCount > 0) errText.push(`${missedCount} WPT`);
+            if (speedCount > 0) errText.push(`${speedCount} Vit`);
+            if (otherCount > 0) errText.push(`${otherCount} Autre`);
+            let details = errText.length > 0 ? ` (${errText.join(', ')})` : '';
+
             tr.innerHTML = `
                 <td><strong>${i+1}</strong></td>
                 <td>${r.name}</td>
                 <td>${engine.formatTime(r.grossTime)}</td>
                 <td style="color:var(--text-secondary)">-${engine.formatTime(r.neutralizedTime)}</td>
-                <td style="color:var(--accent)">+${engine.formatTime(r.totalPenalties)} (${r.penaltiesBox.length} erreurs)</td>
+                <td style="color:var(--accent)">+${engine.formatTime(r.totalPenalties)}${details}</td>
                 <td><strong>${engine.formatTime(r.score)}</strong></td>
                 <td class="td-actions"></td>
             `;
