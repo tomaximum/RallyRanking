@@ -183,7 +183,8 @@ class RallyApp {
         let results = [];
         for (let comp of this.competitors) {
             let res = engine.calculateCompetitor(comp);
-            results.push({ name: comp.name, ...res });
+            // Inclure les tracks dans le résultat pour que le PDF puisse tracer la trace
+            results.push({ name: comp.name, tracks: comp.tracks, ...res });
 
             // Afficher la trace sur la carte
             this.rallyMap.renderCompetitor(comp.name, comp.tracks, res.wpLog);
@@ -208,23 +209,15 @@ class RallyApp {
             tr.addEventListener('click', () => {
                 if (this.rallyMap.highlightedName === r.name) {
                     this.rallyMap.clearHighlight();
+                    tr.classList.remove('selected');
                 } else {
+                    // Retirer la surbrillance des autres lignes
+                    tbody.querySelectorAll('tr.selected').forEach(el => el.classList.remove('selected'));
+                    tr.classList.add('selected');
                     this.rallyMap.highlightCompetitor(r.name);
                     document.getElementById('main-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             });
-
-            // Bouton PDF
-            const btnPdf = document.createElement('button');
-            btnPdf.className = 'btn-secondary';
-            btnPdf.textContent = 'Fiche PDF';
-            btnPdf.style.fontSize = '0.75rem';
-            btnPdf.style.padding = '0.2rem 0.5rem';
-            btnPdf.onclick = (e) => {
-                e.stopPropagation();
-                const canvas = document.getElementById('pdf-canvas');
-                ExportTools.generatePDF(r, engine, this.roadbook, canvas);
-            };
 
             let missedCount = r.penaltiesBox.filter(p => p.type === 'WPT_MISSED').length;
             let speedCount  = r.penaltiesBox.filter(p => p.type === 'OVERSPEED').length;
@@ -239,7 +232,7 @@ class RallyApp {
                 <td><strong>${i + 1}</strong></td>
                 <td class="td-name">
                     <span class="comp-dot" style="background:${color}"></span>
-                    <span class="comp-name" title="Double-clic pour renommer">${r.name}</span>
+                    <span class="comp-name">${r.name}</span>
                 </td>
                 <td>${engine.formatTime(r.grossTime)}</td>
                 <td style="color:var(--text-secondary)">-${engine.formatTime(r.neutralizedTime)}</td>
@@ -248,11 +241,28 @@ class RallyApp {
                 <td class="td-actions"></td>
             `;
 
-            // Double-clic sur le nom pour renommer
-            const nameSpan = tr.querySelector('.comp-name');
-            nameSpan.addEventListener('dblclick', (e) => {
+            const actions = tr.querySelector('.td-actions');
+
+            // ── Bouton Fiche PDF ──────────────────────────────────────
+            const btnPdf = document.createElement('button');
+            btnPdf.className = 'btn-secondary btn-icon';
+            btnPdf.title = 'Générer la Fiche PDF';
+            btnPdf.innerHTML = '📄 PDF';
+            btnPdf.onclick = (e) => {
+                e.stopPropagation();
+                const canvas = document.getElementById('pdf-canvas');
+                ExportTools.generatePDF(r, engine, this.roadbook, canvas);
+            };
+
+            // ── Bouton Renommer ───────────────────────────────────────
+            const btnRename = document.createElement('button');
+            btnRename.className = 'btn-secondary btn-icon';
+            btnRename.title = 'Renommer le concurrent';
+            btnRename.innerHTML = '✏️';
+            btnRename.onclick = (e) => {
                 e.stopPropagation();
                 const oldName = r.name;
+                const nameSpan = tr.querySelector('.comp-name');
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.value = oldName;
@@ -263,29 +273,51 @@ class RallyApp {
 
                 const commit = () => {
                     const newName = input.value.trim() || oldName;
-                    // Mettre à jour les données
                     r.name = newName;
                     const comp = this.competitors.find(c => c.name === oldName);
-                    if (comp) comp.name = newName;
-                    // Mettre à jour la carte
+                    if (comp) {
+                        comp.name = newName;
+                        r.tracks = comp.tracks; // re-sync tracks
+                    }
+                    // Mise à jour carte
                     if (this.rallyMap.competitorLayers[oldName]) {
                         this.rallyMap.competitorLayers[newName] = this.rallyMap.competitorLayers[oldName];
                         this.rallyMap.competitorColors[newName] = this.rallyMap.competitorColors[oldName];
                         delete this.rallyMap.competitorLayers[oldName];
                         delete this.rallyMap.competitorColors[oldName];
                     }
-                    // Re-render le tableau
                     this.renderTable(this.currentResults, this.currentEngine);
                 };
 
                 input.addEventListener('blur', commit);
-                input.addEventListener('keydown', (ev) => {
+                input.addEventListener('keydown', ev => {
                     if (ev.key === 'Enter') commit();
                     if (ev.key === 'Escape') { input.value = oldName; commit(); }
                 });
-            });
+            };
 
-            tr.querySelector('.td-actions').appendChild(btnPdf);
+            // ── Bouton Supprimer ──────────────────────────────────────
+            const btnDel = document.createElement('button');
+            btnDel.className = 'btn-danger btn-icon';
+            btnDel.title = 'Supprimer ce concurrent';
+            btnDel.innerHTML = '🗑';
+            btnDel.onclick = (e) => {
+                e.stopPropagation();
+                if (!confirm(`Supprimer "${r.name}" de la liste ?`)) return;
+                // Retirer de la carte
+                this.rallyMap.removeCompetitor(r.name);
+                // Retirer des données
+                this.competitors = this.competitors.filter(c => c.name !== r.name);
+                this.currentResults = this.currentResults.filter(res => res.name !== r.name);
+                // Mise à jour statut
+                this.compStatus.textContent = `${this.competitors.length} concurrent(s)`;
+                // Re-render tableau
+                this.renderTable(this.currentResults, this.currentEngine);
+            };
+
+            actions.appendChild(btnPdf);
+            actions.appendChild(btnRename);
+            actions.appendChild(btnDel);
             tbody.appendChild(tr);
         });
     }
