@@ -195,10 +195,10 @@ export class ScoringEngine {
             result.netTime = result.grossTime;
         }
 
-        // Pénalité de temps (Mode Régularité)
+        // Pénalité de temps (Mode Régularité : seul le dépassement est pénalisé)
         result.timePenalty = 0;
         if (this.config.mode === 'regularity' && this.config.maxTimeSeconds > 0) {
-            result.timePenalty = Math.abs(result.netTime - this.config.maxTimeSeconds);
+            result.timePenalty = Math.max(0, result.netTime - this.config.maxTimeSeconds);
         }
 
         // Totaux
