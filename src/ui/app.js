@@ -12,6 +12,79 @@ class RallyApp {
 
         this.initDOM();
         this.rallyMap = new RallyMap('main-map');
+        
+        // Charger l'état précédent s'il existe
+        this.loadState();
+    }
+
+    saveState() {
+        const state = {
+            eventInfo: this.getEventInfo(),
+            config: this.getConfig(),
+            roadbook: this.roadbook,
+            competitors: this.competitors
+        };
+        localStorage.setItem('rally_ranking_v2_state', JSON.stringify(state));
+    }
+
+    loadState() {
+        const saved = localStorage.getItem('rally_ranking_v2_state');
+        if (!saved) return;
+
+        try {
+            const data = JSON.parse(saved);
+            
+            // 1. Restaurer l'info événement et la config UI
+            if (data.eventInfo) {
+                if (document.getElementById('cfg-event-name')) document.getElementById('cfg-event-name').value = data.eventInfo.name;
+                if (document.getElementById('cfg-event-date')) document.getElementById('cfg-event-date').value = data.eventInfo.date;
+            }
+            
+            if (data.config) {
+                if (document.getElementById('cfg-mode')) document.getElementById('cfg-mode').value = data.config.mode;
+                if (document.getElementById('cfg-max-time')) document.getElementById('cfg-max-time').value = this.secondsToHMS(data.config.maxTimeSeconds);
+                if (document.getElementById('cfg-speed-limit')) document.getElementById('cfg-speed-limit').value = data.config.speedLimit;
+                if (document.getElementById('cfg-speed-coef')) document.getElementById('cfg-speed-coef').value = data.config.speedCoef;
+                
+                // Penalties...
+                const p = data.config.wptPenalties;
+                if (p) {
+                    const setVal = (id, val) => { if (document.getElementById(id)) document.getElementById(id).value = val; };
+                    setVal('cfg-wpt-default', p.default);
+                    setVal('cfg-wpt-wpm', p.wpm);
+                    setVal('cfg-wpt-wpe', p.wpe);
+                    setVal('cfg-wpt-wpv', p.wpv);
+                    setVal('cfg-wpt-wps', p.wps);
+                    setVal('cfg-wpt-wpn', p.wpn);
+                    setVal('cfg-wpt-wpc', p.wpc);
+                    setVal('cfg-wpt-dss', p.dss);
+                    setVal('cfg-wpt-dz', p.dz);
+                    setVal('cfg-wpt-cp', p.checkpoint);
+                }
+            }
+
+            // 2. Restaurer les données internes
+            if (data.roadbook) {
+                this.roadbook = data.roadbook;
+                this.roadStatus.textContent = `${this.roadbook.waypoints.length} waypoints chargés`;
+                this.roadStatus.classList.add('success');
+                this.rallyMap.renderRoadbook(this.roadbook.waypoints, this.roadbook.routePoints);
+            }
+
+            if (data.competitors && data.competitors.length > 0) {
+                this.competitors = data.competitors;
+                this.compStatus.textContent = `${this.competitors.length} concurrent(s)`;
+                this.compStatus.classList.add('success');
+            }
+
+            // 3. Relancer le calcul si tout est là
+            if (this.roadbook && this.competitors.length > 0) {
+                this.triggerCalculation();
+            }
+
+        } catch (e) {
+            console.error("Échec de la restauration de la session", e);
+        }
     }
 
     initDOM() {
@@ -66,6 +139,16 @@ class RallyApp {
             e.preventDefault();
             configModal.close();
             this.recalculateAll();
+            this.saveState();
+        });
+
+        // Reset
+        const btnReset = document.getElementById('btn-reset');
+        btnReset.addEventListener('click', () => {
+            if (confirm("⚠️ Voulez-vous vraiment TOUT EFFACER (Roadbook, Traces, Config) ?\nCette action est irréversible.")) {
+                localStorage.removeItem('rally_ranking_v2_state');
+                location.reload();
+            }
         });
     }
 
@@ -144,6 +227,7 @@ class RallyApp {
 
                 console.log("Roadbook Parsed", this.roadbook);
                 this.triggerCalculation();
+                this.saveState();
 
             } catch(err) {
                 console.error(err);
@@ -188,6 +272,7 @@ class RallyApp {
         this.compStatus.textContent = `${this.competitors.length} concurrent(s)`;
         this.compStatus.classList.add('success');
         this.triggerCalculation();
+        this.saveState();
     }
 
     getConfig() {
@@ -385,6 +470,7 @@ class RallyApp {
                         delete this.rallyMap.competitorColors[oldName];
                     }
                     this.renderTable(this.currentResults, this.currentEngine);
+                    this.saveState();
                 };
 
                 input.addEventListener('blur', commit);
@@ -411,6 +497,7 @@ class RallyApp {
                 this.compStatus.textContent = `${this.competitors.length} concurrent(s)`;
                 // Re-render tableau
                 this.renderTable(this.currentResults, this.currentEngine);
+                this.saveState();
             };
 
             actions.appendChild(btnPdf);
