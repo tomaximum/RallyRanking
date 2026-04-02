@@ -78,6 +78,22 @@ class RallyApp {
         return { name, date };
     }
 
+    hmsToSeconds(hms) {
+        if (!hms || typeof hms !== 'string') return 0;
+        const pts = hms.split(':').map(Number);
+        if (pts.length === 3) return (pts[0] * 3600) + (pts[1] * 60) + pts[2];
+        if (pts.length === 2) return (pts[0] * 60) + pts[1];
+        return isNaN(pts[0]) ? 0 : pts[0];
+    }
+
+    secondsToHMS(total) {
+        if (isNaN(total)) return "00:00:00";
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = Math.floor(total % 60);
+        return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+    }
+
 
     setupDropzone(zone, input, callback) {
         zone.addEventListener('click', () => input.click());
@@ -175,7 +191,10 @@ class RallyApp {
     }
 
     getConfig() {
+        const maxTimeStr = document.getElementById('cfg-max-time')?.value || '00:00:00';
         return {
+            mode: document.getElementById('cfg-mode')?.value || 'timeattack',
+            maxTimeSeconds: this.hmsToSeconds(maxTimeStr),
             wptPenalties: {
                 default: parseInt(document.getElementById('cfg-wpt-default').value) || 900,
                 wpm: parseInt(document.getElementById('cfg-wpt-wpm').value) || 900,
@@ -190,7 +209,7 @@ class RallyApp {
                 fz: parseInt(document.getElementById('cfg-wpt-dz').value) || 900,
                 checkpoint: parseInt(document.getElementById('cfg-wpt-cp').value) || 3600
             },
-            speedLimit: parseInt(document.getElementById('cfg-speed-limit').value) || 130,
+            speedLimit: parseInt(document.getElementById('cfg-speed-limit').value) || 0,
             speedCoef: parseFloat(document.getElementById('cfg-speed-coef').value) || 1
         };
     }
@@ -234,6 +253,32 @@ class RallyApp {
     }
 
     renderTable(results, engine) {
+        const isRegul = engine.config.mode === 'regularity';
+        
+        // 1. Mettre à jour l'en-tête du tableau
+        const thead = document.querySelector('#ranking-table thead tr');
+        if (isRegul) {
+            thead.innerHTML = `
+                <th>Rang</th>
+                <th>Concurrent</th>
+                <th>Temps Brut</th>
+                <th>Pén. Temps</th>
+                <th>Autres Pén.</th>
+                <th>Total Pén.</th>
+                <th>Actions</th>
+            `;
+        } else {
+            thead.innerHTML = `
+                <th>Rang</th>
+                <th>Concurrent</th>
+                <th>Temps Brut</th>
+                <th>Neutralisation</th>
+                <th>Pénalités</th>
+                <th>Total</th>
+                <th>Actions</th>
+            `;
+        }
+
         const tbody = document.getElementById('ranking-body');
         tbody.innerHTML = '';
 
@@ -256,25 +301,32 @@ class RallyApp {
                 }
             });
 
-            let missedCount = r.penaltiesBox.filter(p => p.type === 'WPT_MISSED').length;
-            let speedCount  = r.penaltiesBox.filter(p => p.type === 'OVERSPEED').length;
-            let otherCount  = r.penaltiesBox.length - missedCount - speedCount;
-            let errText = [];
-            if (missedCount > 0) errText.push(`${missedCount} WPT`);
-            if (speedCount  > 0) errText.push(`${speedCount} Vit`);
-            if (otherCount  > 0) errText.push(`${otherCount} Autre`);
-            let details = errText.length > 0 ? ` (${errText.join(', ')})` : '';
+            // Formatage des colonnes selon le mode
+            const gross = engine.formatTime(r.grossTime);
+            
+            let valNeutral, valPenalties, valTotal;
+            if (isRegul) {
+                // Pour la régularité : tout en secondes
+                valNeutral   = Math.round(r.timePenalty);
+                valPenalties = Math.round(r.totalPenalties);
+                valTotal     = Math.round(r.score);
+            } else {
+                // Pour le Time Attack : format HH:MM:SS
+                valNeutral   = `-${engine.formatTime(r.neutralizedTime)}`;
+                valPenalties = `+${engine.formatTime(r.totalPenalties)}`;
+                valTotal     = `<strong>${engine.formatTime(r.score)}</strong>`;
+            }
 
             tr.innerHTML = `
                 <td><strong>${i + 1}</strong></td>
                 <td class="td-name">
-                    <input type="color" class="comp-color-picker" value="${color}" title="Changer la couleur de la trace">
+                    <input type="color" class="comp-color-picker" value="${color}" title="Changer la couleur">
                     <span class="comp-name">${r.name}</span>
                 </td>
-                <td>${engine.formatTime(r.grossTime)}</td>
-                <td style="color:var(--text-secondary)">-${engine.formatTime(r.neutralizedTime)}</td>
-                <td style="color:var(--accent)">+${engine.formatTime(r.totalPenalties)}${details}</td>
-                <td><strong>${engine.formatTime(r.score)}</strong></td>
+                <td>${gross}</td>
+                <td style="color:var(--text-secondary)">${valNeutral}</td>
+                <td style="color:var(--accent)">${valPenalties}</td>
+                <td><strong>${valTotal}</strong></td>
                 <td class="td-actions"></td>
             `;
 

@@ -68,6 +68,17 @@
                         <label>📅 Date</label>
                         <input type="date" id="cfg-event-date" value="">
                     </div>
+                    <div class="form-group">
+                        <label>🏆 Mode de Classement</label>
+                        <select id="cfg-mode">
+                            <option value="timeattack" selected>Time Attack (Temps Total)</option>
+                            <option value="regularity">Régularité (Pénalités)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>⏱️ Temps de Référence (HH:MM:SS)</label>
+                        <input type="text" id="cfg-max-time" placeholder="01:30:00" value="00:00:00">
+                    </div>
                     <fieldset class="form-group config-fieldset">
                         <legend>Pénalités Waypoints (secondes)</legend>
                         <div class="grid-form">
@@ -115,7 +126,7 @@
                     </fieldset>
                     <div class="form-group">
                         <label>Vitesse Globale Limitée (km/h)</label>
-                        <input type="number" id="cfg-speed-limit" value="130">
+                        <input type="number" id="cfg-speed-limit" value="0">
                     </div>
                     <div class="form-group">
                         <label>Coef Pénalité Survitesse<br><small style="font-weight:normal;color:#888">pén = km/h_en_trop × durée(s) × coef<br>ex : coef=1 → 4km/h pendant 30s = 120s</small></label>

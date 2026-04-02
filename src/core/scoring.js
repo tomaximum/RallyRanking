@@ -195,9 +195,22 @@ export class ScoringEngine {
             result.netTime = result.grossTime;
         }
 
+        // Pénalité de temps (Mode Régularité)
+        result.timePenalty = 0;
+        if (this.config.mode === 'regularity' && this.config.maxTimeSeconds > 0) {
+            result.timePenalty = Math.abs(result.netTime - this.config.maxTimeSeconds);
+        }
+
         // Totaux
         result.totalPenalties = result.penaltiesBox.reduce((acc, p) => acc + Math.round(p.cost), 0);
-        result.score = result.netTime + result.totalPenalties;
+        
+        if (this.config.mode === 'regularity') {
+            // En régularité, le score est la somme des pénalités (temps + waypoints + survitesse)
+            result.score = result.timePenalty + result.totalPenalties;
+        } else {
+            // En Time Attack, le score est le temps net + pénalités
+            result.score = result.netTime + result.totalPenalties;
+        }
 
         return result;
     }

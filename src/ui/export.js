@@ -53,8 +53,11 @@ export class ExportTools {
         let y = 36;
 
         // ── Tableau des résultats ─────────────────────────────────────
+        const isRegul = engine.config.mode === 'regularity';
         const cols = [8, 20, 70, 110, 135, 158]; // offsets x depuis margin
-        const headers = ['Rg', 'Concurrent', 'Tps Brut', 'Neutral.', 'Pénalités', 'Tps Corrigé'];
+        const headers = isRegul 
+            ? ['Rg', 'Concurrent', 'Tps Brut', 'Pén. Temps', 'Autres Pén.', 'Total Pén.']
+            : ['Rg', 'Concurrent', 'Tps Brut', 'Neutral.', 'Pénalités', 'Tps Corrigé'];
 
         doc.setFillColor(30, 30, 60);
         doc.rect(margin, y, colW, 7, 'F');
@@ -70,7 +73,6 @@ export class ExportTools {
             doc.rect(margin, y, colW, 7, 'F');
 
             // Médaille podium
-            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
             doc.setFont(undefined, i < 3 ? 'bold' : 'normal');
             doc.setFontSize(9);
             doc.setTextColor(0, 0, 0);
@@ -78,17 +80,23 @@ export class ExportTools {
             doc.text(String(i + 1), margin + cols[0] + 1, y + 5);
             doc.text(r.name, margin + cols[1] + 1, y + 5);
             doc.text(engine.formatTime(r.grossTime), margin + cols[2] + 1, y + 5);
-            doc.text(`-${engine.formatTime(r.neutralizedTime)}`, margin + cols[3] + 1, y + 5);
-
-            // Pénalités avec couleur rouge si > 0
-            const penStr = `+${engine.formatTime(r.totalPenalties)}`;
-            if (r.totalPenalties > 0) doc.setTextColor(180, 0, 0);
-            doc.text(penStr, margin + cols[4] + 1, y + 5);
-            doc.setTextColor(0, 0, 0);
-
-            // Score en gras
-            doc.setFont(undefined, 'bold');
-            doc.text(engine.formatTime(r.score), margin + cols[5] + 1, y + 5);
+            
+            if (isRegul) {
+                // Régularité : Secondes
+                doc.text(`${Math.round(r.timePenalty)} s`, margin + cols[3] + 1, y + 5);
+                doc.text(`${Math.round(r.totalPenalties)} s`, margin + cols[4] + 1, y + 5);
+                doc.setFont(undefined, 'bold');
+                doc.text(`${Math.round(r.score)} s`, margin + cols[5] + 1, y + 5);
+            } else {
+                // Time Attack : HMS
+                doc.text(`-${engine.formatTime(r.neutralizedTime)}`, margin + cols[3] + 1, y + 5);
+                const penStr = `+${engine.formatTime(r.totalPenalties)}`;
+                if (r.totalPenalties > 0) doc.setTextColor(180, 0, 0);
+                doc.text(penStr, margin + cols[4] + 1, y + 5);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'bold');
+                doc.text(engine.formatTime(r.score), margin + cols[5] + 1, y + 5);
+            }
             doc.setFont(undefined, 'normal');
 
             y += 7;
@@ -227,11 +235,24 @@ export class ExportTools {
 
         // ── Résumé des temps ─────────────────────────────────────────
         doc.setFontSize(10);
-        const times = [
-            ['Temps Spéciale Brut',      engine.formatTime(competitorResult.grossTime)],
-            ['Temps Neutralisé (déduit)', `- ${engine.formatTime(competitorResult.neutralizedTime)}`],
-            ['Pénalités Cumulées',        `+ ${engine.formatTime(competitorResult.totalPenalties)}`],
-        ];
+        const isRegul = engine.config.mode === 'regularity';
+        
+        let times;
+        if (isRegul) {
+            times = [
+                ['Temps de Spéciale Brut',       engine.formatTime(competitorResult.grossTime)],
+                [`Temps de Référence`,           engine.formatTime(engine.config.maxTimeSeconds)],
+                ['Écart (Pénalité Temps)',       `${Math.round(competitorResult.timePenalty)} s`],
+                ['Pénalités Parcours (WP/Vit)',  `+ ${Math.round(competitorResult.totalPenalties)} s`],
+            ];
+        } else {
+            times = [
+                ['Temps Spéciale Brut',      engine.formatTime(competitorResult.grossTime)],
+                ['Temps Neutralisé (déduit)', `- ${engine.formatTime(competitorResult.neutralizedTime)}`],
+                ['Pénalités Cumulées',        `+ ${engine.formatTime(competitorResult.totalPenalties)}`],
+            ];
+        }
+
         times.forEach(([label, val]) => {
             doc.setFont(undefined, 'normal');
             doc.text(label, margin, y);
@@ -247,8 +268,13 @@ export class ExportTools {
 
         doc.setFont(undefined, 'bold');
         doc.setFontSize(12);
-        doc.text('Temps Final Corrigé', margin, y);
-        doc.text(engine.formatTime(competitorResult.score), pageW - margin, y, { align: 'right' });
+        doc.text(isRegul ? 'Total des Pénalités' : 'Temps Final Corrigé', margin, y);
+        
+        const finalVal = isRegul 
+            ? `${Math.round(competitorResult.score)} s` 
+            : engine.formatTime(competitorResult.score);
+            
+        doc.text(finalVal, pageW - margin, y, { align: 'right' });
         y += 10;
 
         // ── Tableau des Waypoints ─────────────────────────────────────
