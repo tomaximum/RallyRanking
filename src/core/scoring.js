@@ -76,7 +76,7 @@ export class ScoringEngine {
                         result.wpLog.push({ waypoint: missed, status: 'MISSED' });
                     }
 
-                    result.wpLog.push({ waypoint: w, status: 'VALID', dist: d });
+                    result.wpLog.push({ waypoint: w, status: 'VALID', dist: d, time: p_curr.time });
                     
                     // State mutations
                     if (w.type === 'dss') {
@@ -149,13 +149,15 @@ export class ScoringEngine {
                 // On utilise config.speedCoef
                 let pen = over * dtSeconds * (this.config.speedCoef / 60); 
 
-                // Optimisation: On devrait regrouper ces pénalités en segments continus sinon on a 10,000 pénalités
+                // Optimisation: On regroupe les pénalités en segments continus sinon on a 10,000 pénalités
                 let lastPen = result.penaltiesBox[result.penaltiesBox.length - 1];
                 if (lastPen && lastPen.type === 'OVERSPEED' && lastPen.limit === limit && (p_curr.time - lastPen.lastTime) < 5000) {
                      lastPen.cost += pen;
                      lastPen.maxOver = Math.max(lastPen.maxOver, over);
+                     lastPen.maxSpeed = Math.max(lastPen.maxSpeed || 0, Math.round(v));
+                     lastPen.durationSeconds += dtSeconds;
                      lastPen.lastTime = p_curr.time;
-                     lastPen.desc = `Survitesse continue (${Math.round(v)} km/h max, limite ${limit})`;
+                     lastPen.desc = `Survitesse continue (${lastPen.maxSpeed} km/h max, limite ${limit})`;
                 } else {
                      result.penaltiesBox.push({
                         type: 'OVERSPEED',
@@ -163,6 +165,9 @@ export class ScoringEngine {
                         cost: pen,
                         limit: limit,
                         maxOver: over,
+                        maxSpeed: Math.round(v),
+                        durationSeconds: dtSeconds,
+                        startTime: p_prev.time,
                         lastTime: p_curr.time
                     });
                 }
