@@ -191,8 +191,9 @@ export class ExportTools {
      * @param {object} engine
      * @param {object} roadbook  — { waypoints, trackPoints }
      * @param {HTMLCanvasElement} canvas — canvas caché pour le rendu carte
+     * @param {object} eventInfo — { name, date }
      */
-    static async generatePDF(competitorResult, engine, roadbook, canvas) {
+    static async generatePDF(competitorResult, engine, roadbook, canvas, eventInfo = {}) {
         if (!window.jspdf) {
             console.error("jsPDF not loaded");
             return;
@@ -205,16 +206,21 @@ export class ExportTools {
         const margin = 15;
         const colW = pageW - margin * 2;
 
+        const eventName = eventInfo.name || 'Rallye';
+        const eventDate = eventInfo.date || new Date().toLocaleDateString('fr-FR');
+
         // ── En-tête ──────────────────────────────────────────────────
         doc.setFillColor(30, 30, 60);
         doc.rect(0, 0, pageW, 28, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text("Fiche de Résultat Officiel", pageW / 2, 11, { align: 'center' });
-        doc.setFontSize(12);
+        doc.text(eventName, pageW / 2, 10, { align: 'center' });
+        doc.setFontSize(14);
+        doc.text("Fiche de Résultat Officiel", pageW / 2, 18, { align: 'center' });
+        doc.setFontSize(11);
         doc.setFont(undefined, 'normal');
-        doc.text(`Concurrent : ${competitorResult.name}`, pageW / 2, 21, { align: 'center' });
+        doc.text(`Concurrent : ${competitorResult.name}  —  ${eventDate}`, pageW / 2, 24, { align: 'center' });
 
         doc.setTextColor(0, 0, 0);
         let y = 36;

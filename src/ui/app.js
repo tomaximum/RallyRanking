@@ -289,7 +289,7 @@ class RallyApp {
             btnPdf.onclick = (e) => {
                 e.stopPropagation();
                 const canvas = document.getElementById('pdf-canvas');
-                ExportTools.generatePDF(r, engine, this.roadbook, canvas);
+                ExportTools.generatePDF(r, this.currentEngine, this.roadbook, canvas, this.getEventInfo());
             };
 
             // ── Bouton Renommer ───────────────────────────────────────
