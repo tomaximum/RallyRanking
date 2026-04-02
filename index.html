@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ff4757">
+    <meta name="description" content="Calcul de classements de rallye au format OpenRally / TerraPirata">
     <title>RallyRanking - OpenRally Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-512.png">
+    <link rel="apple-touch-icon" href="icons/icon-512.png">
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -162,5 +167,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- App Logic -->
     <script type="module" src="src/ui/app.js"></script>
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(r => console.log('SW enregistr\u00e9:', r.scope))
+                    .catch(e => console.warn('SW non enregistr\u00e9:', e));
+            });
+        }
+    </script>
 </body>
 </html>
