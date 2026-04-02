@@ -95,8 +95,8 @@ class RallyApp {
                 this.roadStatus.textContent = `${data.waypoints.length} waypoints chargés`;
                 this.roadStatus.classList.add('success');
 
-                // Afficher le roadbook sur la carte
-                this.rallyMap.renderRoadbook(data.waypoints, data.trackPoints);
+                // Afficher le roadbook sur la carte (routePoints = tous les pts, même sans timestamp)
+                this.rallyMap.renderRoadbook(data.waypoints, data.routePoints);
 
                 console.log("Roadbook Parsed", this.roadbook);
                 this.triggerCalculation();
@@ -231,7 +231,7 @@ class RallyApp {
             tr.innerHTML = `
                 <td><strong>${i + 1}</strong></td>
                 <td class="td-name">
-                    <span class="comp-dot" style="background:${color}"></span>
+                    <input type="color" class="comp-color-picker" value="${color}" title="Changer la couleur de la trace">
                     <span class="comp-name">${r.name}</span>
                 </td>
                 <td>${engine.formatTime(r.grossTime)}</td>
@@ -240,6 +240,15 @@ class RallyApp {
                 <td><strong>${engine.formatTime(r.score)}</strong></td>
                 <td class="td-actions"></td>
             `;
+
+            // Changement de couleur en temps réel
+            const colorPicker = tr.querySelector('.comp-color-picker');
+            colorPicker.addEventListener('input', (e) => {
+                e.stopPropagation();
+                const newColor = e.target.value;
+                this.rallyMap.changeCompetitorColor(r.name, newColor);
+            });
+            colorPicker.addEventListener('click', e => e.stopPropagation());
 
             const actions = tr.querySelector('.td-actions');
 

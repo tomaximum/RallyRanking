@@ -14,27 +14,36 @@ export class GPXParser {
           throw new Error("Erreur lors de la lecture du fichier GPX. Le format est invalide.");
       }
 
-      const trackPoints = this.extractTrackPoints(xml);
+      const trackPoints = this.extractTrackPoints(xml);  // Avec timestamp obligatoire (concurrents)
+      const routePoints = this.extractRoutePoints(xml);   // Sans timestamp (roadbook)
       const waypoints = this.extractWaypoints(xml);
 
-      return { trackPoints, waypoints };
+      return { trackPoints, routePoints, waypoints };
   }
 
+  // Points avec timestamp obligatoire — pour le calcul des concurrents
   static extractTrackPoints(xml) {
-      // Pour une trace concurrent, on peut avoir plusieurs <trkseg>
-      const trkpts = Array.from(xml.getElementsByTagName("trkpt"));
+      const trkpts = Array.from(xml.getElementsByTagName('trkpt'));
       return trkpts.map((pt, index) => {
-          const lat = parseFloat(pt.getAttribute("lat"));
-          const lon = parseFloat(pt.getAttribute("lon"));
-          const timeNode = pt.getElementsByTagName("time")[0];
-          
+          const lat = parseFloat(pt.getAttribute('lat'));
+          const lon = parseFloat(pt.getAttribute('lon'));
+          const timeNode = pt.getElementsByTagName('time')[0];
           let time = null;
           if (timeNode && timeNode.textContent) {
-              time = new Date(timeNode.textContent).getTime(); // en ms
+              time = new Date(timeNode.textContent).getTime();
           }
-          
           return { id: index, lat, lon, time };
-      }).filter(pt => pt.time !== null); // Une trace valide a besoin de temps
+      }).filter(pt => pt.time !== null);
+  }
+
+  // Tous les points de trace — pour l'affichage du roadbook sur la carte (pas de temps requis)
+  static extractRoutePoints(xml) {
+      const trkpts = Array.from(xml.getElementsByTagName('trkpt'));
+      return trkpts.map((pt, index) => {
+          const lat = parseFloat(pt.getAttribute('lat'));
+          const lon = parseFloat(pt.getAttribute('lon'));
+          return { id: index, lat, lon };
+      }).filter(pt => !isNaN(pt.lat) && !isNaN(pt.lon));
   }
 
   static getExtNode(wpt, tagName) {

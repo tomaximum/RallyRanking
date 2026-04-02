@@ -365,12 +365,27 @@ tbody tr:hover {
     gap: 0.5rem;
 }
 
-.comp-dot {
-    width: 10px;
-    height: 10px;
+.comp-color-picker {
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
+    border: 2px solid var(--border);
+    padding: 0;
+    cursor: pointer;
     flex-shrink: 0;
-    display: inline-block;
+    background: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.comp-color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border-radius: 50%;
+}
+
+.comp-color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
 }
 
 .comp-name {

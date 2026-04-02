@@ -205,6 +205,21 @@ export class RallyMap {
         }
     }
 
+    changeCompetitorColor(name, newColor) {
+        const entry = this.competitorLayers[name];
+        if (!entry) return;
+        entry.color = newColor;
+        this.competitorColors[name] = newColor;
+        // Mise à jour de la polyline
+        if (entry.polyline) {
+            entry.polyline.setStyle({ color: newColor });
+        }
+        // Mise à jour du label dans le contrôle de couches
+        // Leaflet ne permet pas de modifier le label directement, on retire/rajoute
+        this._layerControl.removeLayer(entry.group);
+        this._layerControl.addOverlay(entry.group, `<span style="color:${newColor};font-size:1.1em">●</span> ${name}`);
+    }
+
     clearAllCompetitors() {
         Object.keys(this.competitorLayers).forEach(n => this.removeCompetitor(n));
         this.colorIndex = 0;
