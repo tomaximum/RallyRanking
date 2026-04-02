@@ -1,22 +1,18 @@
 /**
  * RallyMap — Carte interactive Leaflet pour RallyRanking
- * Gère l'affichage du roadbook, des traces concurrents, et la sélection.
  */
 export class RallyMap {
     constructor(containerId) {
         this.containerId = containerId;
         this.map = null;
-        this.layers = {};         // { name: L.layerGroup }
-        this.tileLayer = null;
         this.roadbookLayer = null;
-        this.competitorLayers = {}; // { name: { polyline, markers } }
+        this.competitorLayers = {}; // { name: { group, polyline, color } }
         this.highlightedName = null;
 
-        // Couleurs cycliques pour les concurrents
         this.palette = [
             '#FF6B6B', '#4ECDC4', '#FFE66D', '#A29BFE',
-            '#FD79A8', '#00B894', '#FDCB6E', '#74B9FF',
-            '#E17055', '#55EFC4'
+            '#FD79A8', '#00CEC9', '#FDCB6E', '#74B9FF',
+            '#E17055', '#55EFC4', '#6C5CE7', '#FAB1A0'
         ];
         this.colorIndex = 0;
         this.competitorColors = {};
@@ -31,99 +27,114 @@ export class RallyMap {
             zoomControl: true
         });
 
-        // ── Fonds de carte ───────────────────────────────────────────
-        const baseLayers = {
-            'OpenStreetMap': L.tileLayer(
-                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                { attribution: '© OpenStreetMap contributors', maxZoom: 19 }
-            ),
-            'Satellite': L.tileLayer(
+        const osm = L.tileLayer(
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            { attribution: '© OpenStreetMap contributors', maxZoom: 19 }
+        );
+        const sat = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { attribution: '© Esri World Imagery', maxZoom: 19 }
+        );
+        // Hybride = satellite + OSM labels en overlay
+        const hybrid = L.layerGroup([
+            L.tileLayer(
                 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                { attribution: '© Esri World Imagery', maxZoom: 19 }
+                { attribution: '© Esri', maxZoom: 19 }
             ),
-            'Hybride': L.layerGroup([
-                L.tileLayer(
-                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                    { attribution: '© Esri World Imagery', maxZoom: 19 }
-                ),
-                L.tileLayer(
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    { attribution: '© OpenStreetMap contributors', maxZoom: 19, opacity: 0.4 }
-                )
-            ])
-        };
+            L.tileLayer(
+                'https://stamen-tiles.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png',
+                { attribution: '© Stamen', maxZoom: 19, opacity: 0.6 }
+            )
+        ]);
 
-        // Activer OSM par défaut
-        baseLayers['OpenStreetMap'].addTo(this.map);
+        osm.addTo(this.map);
 
-        // Contrôle de couches (fond de carte + concurrents)
-        this._layerControl = L.control.layers(baseLayers, {}, {
+        this._baseLayers = { 'OpenStreetMap': osm, 'Satellite': sat, 'Hybride': hybrid };
+        this._overlays = {};
+
+        this._layerControl = L.control.layers(this._baseLayers, this._overlays, {
             position: 'topright',
             collapsed: false
         }).addTo(this.map);
 
-        this.baseLayers = baseLayers;
+        // ── Ré-appliquer les styles après un toggle du contrôle de couches ──
+        this.map.on('overlayadd overlayremove', () => {
+            // Quand une couche est rajoutée, s'assurer que les styles highlight sont corrects
+            if (this.highlightedName) {
+                this._applyHighlightStyles(this.highlightedName);
+            } else {
+                this._resetAllStyles();
+            }
+        });
     }
 
     // ── Roadbook ──────────────────────────────────────────────────────
 
     renderRoadbook(waypoints, trackPoints) {
-        // Nettoyer l'ancienne couche
         if (this.roadbookLayer) {
             this.map.removeLayer(this.roadbookLayer);
+            this._layerControl.removeLayer(this.roadbookLayer);
         }
         this.roadbookLayer = L.layerGroup();
 
-        // Trace GPS du roadbook
+        // Trace GPS du roadbook — trait plein épaisseur 5, haute visibilité
         if (trackPoints && trackPoints.length > 1) {
             const latlngs = trackPoints.map(p => [p.lat, p.lon]);
             L.polyline(latlngs, {
-                color: '#4A90D9',
-                weight: 3,
-                opacity: 0.7,
-                dashArray: '6 4'
+                color: '#1565C0',   // bleu foncé
+                weight: 5,
+                opacity: 1,
+                lineJoin: 'round',
+                lineCap: 'round'
+            }).addTo(this.roadbookLayer);
+
+            // Halo blanc dessous pour contraste sur fond sombre/satellite
+            L.polyline(latlngs, {
+                color: '#FFFFFF',
+                weight: 8,
+                opacity: 0.35,
+                lineJoin: 'round',
+                lineCap: 'round'
             }).addTo(this.roadbookLayer);
         }
 
         // Marqueurs WP
         waypoints.forEach((w, idx) => {
-            const color = this._wptColor(w.type);
+            const fillColor = this._wptColor(w.type);
             const marker = L.circleMarker([w.lat, w.lon], {
-                radius: 8,
-                fillColor: color,
+                radius: 9,
+                fillColor,
                 color: '#fff',
-                weight: 2,
-                fillOpacity: 0.9
+                weight: 2.5,
+                fillOpacity: 1,
+                zIndexOffset: 500
             });
-
             marker.bindTooltip(
-                `<strong>${w.name || idx + 1}</strong><br>${(w.type || '').toUpperCase()}<br>Open: ${w.open}m / Clear: ${w.clear}m`,
-                { direction: 'top', offset: [0, -8] }
+                `<strong>${w.name || idx + 1}</strong> — ${(w.type || '').toUpperCase()}<br>Open: ${w.open} m / Clear: ${w.clear} m`,
+                { direction: 'top', offset: [0, -10] }
             );
-
             marker.addTo(this.roadbookLayer);
 
-            // Label numéro
+            // Numéro centré sur le marqueur
             L.marker([w.lat, w.lon], {
                 icon: L.divIcon({
                     className: '',
-                    html: `<div style="font-size:9px;font-weight:700;color:#fff;text-align:center;margin-top:2px;">${w.name || idx + 1}</div>`,
-                    iconSize: [20, 14],
-                    iconAnchor: [10, 18]
-                })
+                    html: `<span style="font:bold 9px/9px sans-serif;color:#fff">${w.name || idx + 1}</span>`,
+                    iconSize: [20, 10],
+                    iconAnchor: [10, 5]
+                }),
+                zIndexOffset: 600
             }).addTo(this.roadbookLayer);
         });
 
         this.roadbookLayer.addTo(this.map);
+        this._overlays['📍 Roadbook'] = this.roadbookLayer;
         this._layerControl.addOverlay(this.roadbookLayer, '📍 Roadbook');
 
-        // Zoom automatique si trackPoints disponibles
-        if (trackPoints && trackPoints.length > 0) {
-            const bounds = L.latLngBounds(trackPoints.map(p => [p.lat, p.lon]));
-            this.map.fitBounds(bounds, { padding: [30, 30] });
-        } else if (waypoints.length > 0) {
-            const bounds = L.latLngBounds(waypoints.map(w => [w.lat, w.lon]));
-            this.map.fitBounds(bounds, { padding: [30, 30] });
+        // Zoom automatique
+        const pts = (trackPoints && trackPoints.length > 0) ? trackPoints : waypoints.map(w => ({ lat: w.lat, lon: w.lon }));
+        if (pts.length > 0) {
+            this.map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])), { padding: [30, 30] });
         }
     }
 
@@ -138,47 +149,51 @@ export class RallyMap {
     }
 
     renderCompetitor(name, tracks, wpLog) {
-        // Supprimer l'ancienne couche si recalcul
         this.removeCompetitor(name);
 
         const color = this.getColor(name);
         const group = L.layerGroup();
+        let polyline = null;
 
-        // Trace GPS
+        // Trace GPS — épaisseur 4, pleine opacité
         if (tracks && tracks.length > 1) {
             const latlngs = tracks.map(p => [p.lat, p.lon]);
-            const polyline = L.polyline(latlngs, {
-                color: color,
-                weight: 2.5,
-                opacity: 0.8
+            polyline = L.polyline(latlngs, {
+                color,
+                weight: 4,
+                opacity: 1,
+                lineJoin: 'round',
+                lineCap: 'round'
             });
             polyline.bindTooltip(name, { sticky: true });
             polyline.addTo(group);
         }
 
-        // Marqueurs WP validés/ratés
+        // Marqueurs WP avec statut
         if (wpLog) {
             wpLog.forEach(entry => {
                 const w = entry.waypoint;
                 const isValid = entry.status === 'VALID';
-                const marker = L.circleMarker([w.lat, w.lon], {
-                    radius: 6,
+                const dot = L.circleMarker([w.lat, w.lon], {
+                    radius: 7,
                     fillColor: isValid ? '#00b894' : '#d63031',
                     color: '#fff',
-                    weight: 1.5,
-                    fillOpacity: 1
+                    weight: 2,
+                    fillOpacity: 1,
+                    zIndexOffset: 400
                 });
-                marker.bindTooltip(
+                dot.bindTooltip(
                     `${name} — ${w.name || '?'} (${isValid ? '✓ Validé' : '✗ Raté'})`,
-                    { direction: 'top', offset: [0, -6] }
+                    { direction: 'top', offset: [0, -8] }
                 );
-                marker.addTo(group);
+                dot.addTo(group);
             });
         }
 
         group.addTo(this.map);
-        this.competitorLayers[name] = { group, color };
-        this._layerControl.addOverlay(group, `<span style="color:${color}">●</span> ${name}`);
+        this.competitorLayers[name] = { group, polyline, color };
+        this._overlays[name] = group;
+        this._layerControl.addOverlay(group, `<span style="color:${color};font-size:1.1em">●</span> ${name}`);
     }
 
     removeCompetitor(name) {
@@ -186,6 +201,7 @@ export class RallyMap {
             this.map.removeLayer(this.competitorLayers[name].group);
             this._layerControl.removeLayer(this.competitorLayers[name].group);
             delete this.competitorLayers[name];
+            delete this._overlays[name];
         }
     }
 
@@ -198,50 +214,57 @@ export class RallyMap {
     // ── Mise en évidence ─────────────────────────────────────────────
 
     highlightCompetitor(name) {
-        // Reset toutes les couches
-        Object.entries(this.competitorLayers).forEach(([n, { group }]) => {
-            group.eachLayer(layer => {
-                if (layer.setStyle) {
-                    layer.setStyle({ opacity: n === name ? 1 : 0.15, fillOpacity: n === name ? 1 : 0.15 });
-                }
-            });
-        });
         this.highlightedName = name;
+        this._applyHighlightStyles(name);
 
         // Zoom sur la trace sélectionnée
-        const layer = this.competitorLayers[name];
-        if (layer) {
-            const allLatLngs = [];
-            layer.group.eachLayer(l => {
-                if (l.getLatLngs) allLatLngs.push(...l.getLatLngs());
-                if (l.getLatLng) allLatLngs.push(l.getLatLng());
-            });
-            if (allLatLngs.length > 0) {
-                this.map.fitBounds(L.latLngBounds(allLatLngs), { padding: [40, 40] });
+        const entry = this.competitorLayers[name];
+        if (entry && entry.polyline) {
+            const latlngs = entry.polyline.getLatLngs();
+            if (latlngs.length > 0) {
+                this.map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
             }
         }
     }
 
     clearHighlight() {
-        Object.values(this.competitorLayers).forEach(({ group }) => {
-            group.eachLayer(layer => {
-                if (layer.setStyle) layer.setStyle({ opacity: 0.8, fillOpacity: 1 });
-            });
-        });
         this.highlightedName = null;
+        this._resetAllStyles();
+    }
+
+    // ── Styles internes ───────────────────────────────────────────────
+
+    _applyHighlightStyles(selectedName) {
+        Object.entries(this.competitorLayers).forEach(([n, { polyline }]) => {
+            if (!polyline || !this.map.hasLayer(polyline)) return;
+            const isSelected = n === selectedName;
+            polyline.setStyle({
+                opacity: isSelected ? 1 : 0.12,
+                weight:  isSelected ? 5 : 3
+            });
+            if (isSelected) polyline.bringToFront();
+        });
+    }
+
+    _resetAllStyles() {
+        Object.values(this.competitorLayers).forEach(({ polyline }) => {
+            if (!polyline || !this.map.hasLayer(polyline)) return;
+            polyline.setStyle({ opacity: 1, weight: 4 });
+        });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
 
     _wptColor(type) {
-        const map = {
-            dss: '#2ecc71', ass: '#e74c3c',
-            dz: '#f39c12', fz: '#27ae60',
-            wpm: '#3498db', wpe: '#3498db', wpv: '#9b59b6',
-            wps: '#e67e22', wpn: '#c0392b', wpc: '#1abc9c',
-            checkpoint: '#1abc9c', dn: '#95a5a6', fn: '#95a5a6',
-            dt: '#bdc3c7', ft: '#bdc3c7'
+        const colors = {
+            dss: '#2ECC71', ass: '#E74C3C',
+            dz: '#F39C12',  fz: '#27AE60',
+            wpm: '#3498DB', wpe: '#3498DB', wpv: '#9B59B6',
+            wps: '#E67E22', wpn: '#C0392B', wpc: '#1ABC9C',
+            checkpoint: '#1ABC9C',
+            dn: '#95A5A6', fn: '#95A5A6',
+            dt: '#BDC3C7', ft: '#BDC3C7'
         };
-        return map[(type || '').toLowerCase()] || '#3498db';
+        return colors[(type || '').toLowerCase()] || '#3498DB';
     }
 }
