@@ -28,11 +28,29 @@ class RallyApp {
         this.setupDropzone(this.roadzone, this.roadInput, (files) => this.handleRoadbookFile(files[0]));
         this.setupDropzone(this.compzone, this.compInput, (files) => this.handleCompetitorFiles(files));
 
-        // Export button
+        // Pré-remplir la date du jour dans le config
+        const dateInput = document.getElementById('cfg-event-date');
+        if (dateInput && !dateInput.value) {
+            dateInput.value = new Date().toISOString().split('T')[0];
+        }
+
+        // Export CSV
         this.btnExport = document.getElementById('btn-export');
         this.btnExport.addEventListener('click', () => {
             if (this.currentResults && this.currentEngine) {
                 ExportTools.generateCSV(this.currentResults, this.currentEngine);
+            }
+        });
+
+        // Export Classement PDF
+        this.btnExportPdf = document.getElementById('btn-export-pdf');
+        this.btnExportPdf.addEventListener('click', () => {
+            if (this.currentResults && this.currentEngine) {
+                ExportTools.generateRankingPDF(
+                    this.currentResults,
+                    this.currentEngine,
+                    this.getEventInfo()
+                );
             }
         });
 
@@ -47,9 +65,19 @@ class RallyApp {
         configForm.addEventListener('submit', (e) => {
             e.preventDefault();
             configModal.close();
-            this.recalculateAll(); // Trigger recount if config changed
+            this.recalculateAll();
         });
     }
+
+    getEventInfo() {
+        const name = document.getElementById('cfg-event-name')?.value?.trim() || 'Rallye';
+        const rawDate = document.getElementById('cfg-event-date')?.value;
+        const date = rawDate
+            ? new Date(rawDate).toLocaleDateString('fr-FR')
+            : new Date().toLocaleDateString('fr-FR');
+        return { name, date };
+    }
+
 
     setupDropzone(zone, input, callback) {
         zone.addEventListener('click', () => input.click());
@@ -194,6 +222,7 @@ class RallyApp {
         this.currentResults = results;
         this.renderTable(results, engine);
         this.btnExport.disabled = false;
+        this.btnExportPdf.disabled = false;
     }
 
     renderTable(results, engine) {

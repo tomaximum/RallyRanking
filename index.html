@@ -24,6 +24,7 @@
             </div>
             <nav class="actions">
                 <button id="btn-config" class="btn-secondary">Configuration</button>
+                <button id="btn-export-pdf" class="btn-secondary" disabled>Classement PDF</button>
                 <button id="btn-export" class="btn-primary" disabled>Exporter CSV</button>
             </nav>
         </div>
@@ -57,8 +58,16 @@
         <!-- Configuration Modal (Hidden by default) -->
         <dialog id="config-modal" class="modal">
             <div class="modal-content">
-                <h2>Configuration des Pénalités</h2>
+                <h2>Configuration</h2>
                 <form id="config-form">
+                    <div class="form-group">
+                        <label>🏁 Nom de l'événement</label>
+                        <input type="text" id="cfg-event-name" placeholder="Ex: Rallye de la Forêt 2025" value="Rallye">
+                    </div>
+                    <div class="form-group">
+                        <label>📅 Date</label>
+                        <input type="date" id="cfg-event-date" value="">
+                    </div>
                     <fieldset class="form-group config-fieldset">
                         <legend>Pénalités Waypoints (secondes)</legend>
                         <div class="grid-form">
