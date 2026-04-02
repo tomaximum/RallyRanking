@@ -1,0 +1,15 @@
+# Données concurrents et traces (SENSITIVE)
+*.gpx
+*.GPX
+*.json
+!manifest.json
+
+# Fichiers système et IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Sessions et sauvegardes locales
+rally-*.json
+session-*.json
