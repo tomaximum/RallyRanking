@@ -1,3 +1,5 @@
+import { MapCanvas } from './mapCanvas.js';
+
 export class ExportTools {
     /**
      * Génère un CSV des classements
@@ -30,8 +32,12 @@ export class ExportTools {
 
     /**
      * Génère une fiche A4 en PDF pour un concurrent
+     * @param {object} competitorResult
+     * @param {object} engine
+     * @param {object} roadbook  — { waypoints, trackPoints }
+     * @param {HTMLCanvasElement} canvas — canvas caché pour le rendu carte
      */
-    static async generatePDF(competitorResult, engine) {
+    static async generatePDF(competitorResult, engine, roadbook, canvas) {
         if (!window.jspdf) {
             console.error("jsPDF not loaded");
             return;
@@ -184,6 +190,28 @@ export class ExportTools {
                 y += 5.5;
                 if (y > 272) { doc.addPage(); y = 15; }
             });
+        }
+
+        // ── Carte ────────────────────────────────────────────────────
+        if (canvas && roadbook) {
+            doc.addPage();
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(30, 30, 60);
+            doc.text('Carte du Parcours', margin, 18);
+
+            try {
+                const mapDataUrl = MapCanvas.renderToCanvas(canvas, roadbook, competitorResult);
+                // Calcul de la taille pour remplir la page (A4 = 210x297mm, marges = 15mm)
+                const imgW = pageW - margin * 2;
+                const imgH = Math.round(imgW * (canvas.height / canvas.width));
+                doc.addImage(mapDataUrl, 'PNG', margin, 24, imgW, imgH);
+            } catch (err) {
+                console.error('Erreur rendu carte PDF', err);
+                doc.setFontSize(10);
+                doc.setTextColor(150, 0, 0);
+                doc.text('Impossible de générer la carte.', margin, 30);
+            }
         }
 
         doc.save(`Fiche_${competitorResult.name}.pdf`);

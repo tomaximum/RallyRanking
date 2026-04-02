@@ -1,13 +1,17 @@
 import { GPXParser } from '../core/parser.js';
 import { ScoringEngine } from '../core/scoring.js';
 import { ExportTools } from './export.js';
+import { RallyMap } from './map.js';
 
 class RallyApp {
     constructor() {
-        this.roadbook = null; // { tracks, waypoints }
-        this.competitors = []; // Array of { file, name, tracks }
-        
+        this.roadbook = null;
+        this.competitors = [];
+        this.currentResults = null;
+        this.currentEngine = null;
+
         this.initDOM();
+        this.rallyMap = new RallyMap('main-map');
     }
 
     initDOM() {
@@ -90,7 +94,10 @@ class RallyApp {
                 this.roadbook = data;
                 this.roadStatus.textContent = `${data.waypoints.length} waypoints chargés`;
                 this.roadStatus.classList.add('success');
-                
+
+                // Afficher le roadbook sur la carte
+                this.rallyMap.renderRoadbook(data.waypoints, data.trackPoints);
+
                 console.log("Roadbook Parsed", this.roadbook);
                 this.triggerCalculation();
 
@@ -164,63 +171,120 @@ class RallyApp {
 
     triggerCalculation() {
         if (!this.roadbook || this.competitors.length === 0) return;
-        
-        console.log("Démarrage du Scoring Engine...");
+
+        console.log('Démarrage du Scoring Engine...');
         const config = this.getConfig();
         const engine = new ScoringEngine(this.roadbook, config);
         this.currentEngine = engine;
 
+        // Réinitialise les couches concurrents sur la carte
+        this.rallyMap.clearAllCompetitors();
+
         let results = [];
         for (let comp of this.competitors) {
             let res = engine.calculateCompetitor(comp);
-            results.push({
-                name: comp.name,
-                ...res
-            });
+            results.push({ name: comp.name, ...res });
+
+            // Afficher la trace sur la carte
+            this.rallyMap.renderCompetitor(comp.name, comp.tracks, res.wpLog);
         }
 
         results.sort((a, b) => a.score - b.score);
         this.currentResults = results;
         this.renderTable(results, engine);
-        
-        // Activer le bouton d'export
         this.btnExport.disabled = false;
     }
 
     renderTable(results, engine) {
         const tbody = document.getElementById('ranking-body');
         tbody.innerHTML = '';
-        
+
         results.forEach((r, i) => {
+            const color = this.rallyMap.getColor(r.name);
             const tr = document.createElement('tr');
-            
-            // Fiche A4 Bouton
+            tr.style.cursor = 'pointer';
+
+            // Clic sur la ligne → zoom sur le concurrent dans la carte
+            tr.addEventListener('click', () => {
+                if (this.rallyMap.highlightedName === r.name) {
+                    this.rallyMap.clearHighlight();
+                } else {
+                    this.rallyMap.highlightCompetitor(r.name);
+                    document.getElementById('main-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+
+            // Bouton PDF
             const btnPdf = document.createElement('button');
             btnPdf.className = 'btn-secondary';
             btnPdf.textContent = 'Fiche PDF';
             btnPdf.style.fontSize = '0.75rem';
             btnPdf.style.padding = '0.2rem 0.5rem';
-            btnPdf.onclick = () => ExportTools.generatePDF(r, engine);
+            btnPdf.onclick = (e) => {
+                e.stopPropagation();
+                const canvas = document.getElementById('pdf-canvas');
+                ExportTools.generatePDF(r, engine, this.roadbook, canvas);
+            };
 
             let missedCount = r.penaltiesBox.filter(p => p.type === 'WPT_MISSED').length;
-            let speedCount = r.penaltiesBox.filter(p => p.type === 'OVERSPEED').length;
-            let otherCount = r.penaltiesBox.length - missedCount - speedCount;
+            let speedCount  = r.penaltiesBox.filter(p => p.type === 'OVERSPEED').length;
+            let otherCount  = r.penaltiesBox.length - missedCount - speedCount;
             let errText = [];
             if (missedCount > 0) errText.push(`${missedCount} WPT`);
-            if (speedCount > 0) errText.push(`${speedCount} Vit`);
-            if (otherCount > 0) errText.push(`${otherCount} Autre`);
+            if (speedCount  > 0) errText.push(`${speedCount} Vit`);
+            if (otherCount  > 0) errText.push(`${otherCount} Autre`);
             let details = errText.length > 0 ? ` (${errText.join(', ')})` : '';
 
             tr.innerHTML = `
-                <td><strong>${i+1}</strong></td>
-                <td>${r.name}</td>
+                <td><strong>${i + 1}</strong></td>
+                <td class="td-name">
+                    <span class="comp-dot" style="background:${color}"></span>
+                    <span class="comp-name" title="Double-clic pour renommer">${r.name}</span>
+                </td>
                 <td>${engine.formatTime(r.grossTime)}</td>
                 <td style="color:var(--text-secondary)">-${engine.formatTime(r.neutralizedTime)}</td>
                 <td style="color:var(--accent)">+${engine.formatTime(r.totalPenalties)}${details}</td>
                 <td><strong>${engine.formatTime(r.score)}</strong></td>
                 <td class="td-actions"></td>
             `;
-            
+
+            // Double-clic sur le nom pour renommer
+            const nameSpan = tr.querySelector('.comp-name');
+            nameSpan.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                const oldName = r.name;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = oldName;
+                input.className = 'rename-input';
+                nameSpan.replaceWith(input);
+                input.focus();
+                input.select();
+
+                const commit = () => {
+                    const newName = input.value.trim() || oldName;
+                    // Mettre à jour les données
+                    r.name = newName;
+                    const comp = this.competitors.find(c => c.name === oldName);
+                    if (comp) comp.name = newName;
+                    // Mettre à jour la carte
+                    if (this.rallyMap.competitorLayers[oldName]) {
+                        this.rallyMap.competitorLayers[newName] = this.rallyMap.competitorLayers[oldName];
+                        this.rallyMap.competitorColors[newName] = this.rallyMap.competitorColors[oldName];
+                        delete this.rallyMap.competitorLayers[oldName];
+                        delete this.rallyMap.competitorColors[oldName];
+                    }
+                    // Re-render le tableau
+                    this.renderTable(this.currentResults, this.currentEngine);
+                };
+
+                input.addEventListener('blur', commit);
+                input.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') commit();
+                    if (ev.key === 'Escape') { input.value = oldName; commit(); }
+                });
+            });
+
             tr.querySelector('.td-actions').appendChild(btnPdf);
             tbody.appendChild(tr);
         });

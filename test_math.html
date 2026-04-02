@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Math Geo</title></head>
+<body>
+    <h1>Resultats</h1>
+    <pre id="log"></pre>
+    <script type="module">
+        import { GeoTools } from './src/core/geo.js';
+        
+        let log = document.getElementById('log');
+        function print(msg) { log.textContent += msg + '\n'; }
+
+        // Mêmes coordonnées que notre test manuel (WPT1 & tracks[0]-tracks[1])
+        let w = { lat: 48.695286, lon: 3.447244, clear: 10 };
+        let p_prev = { lat: 48.695295, lon: 3.447319 };
+        let p_curr = { lat: 48.695297, lon: 3.447303 };
+
+        let dH = GeoTools.distance(w.lat, w.lon, p_prev.lat, p_prev.lon);
+        let dSeg = GeoTools.pointToSegmentDistance(w, p_prev, p_curr);
+        
+        print(`WPT1 vs tracks[0]: Haversine = ${dH}`);
+        print(`WPT1 vs [tracks[0], tracks[1]]: SegDist = ${dSeg}`);
+
+        // Point de bana77 autour de WPT2 (DZ) 
+        let wpt2 = { lat: 48.695771, lon: 3.444903, clear: 30 };
+        let t1 = { lat: 48.695750, lon: 3.445074 }; // 09:33:24
+        let t2 = { lat: 48.695757, lon: 3.445033 }; // 09:33:25
+        
+        let dH2 = GeoTools.distance(wpt2.lat, wpt2.lon, t1.lat, t1.lon);
+        let dSeg2 = GeoTools.pointToSegmentDistance(wpt2, t1, t2);
+
+        print(`WPT2 vs t1: Haversine = ${dH2}`);
+        print(`WPT2 vs [t1, t2]: SegDist = ${dSeg2}`);
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Scoring</title>
+</head>
+<body>
+    <h1>Resultats</h1>
+    <pre id="output"></pre>
+    <script type="module">
+        import { GPXParser } from './src/core/parser.js';
+        import { ScoringEngine } from './src/core/scoring.js';
+
+        async function test() {
+            try {
+                const rbRes = await fetch("AxeQuad RoadBook - Formation RB 25k v26.03.08 (TerraPirata).gpx");
+                const rbText = await rbRes.text();
+                const rbXml = new DOMParser().parseFromString(rbText, "text/xml");
+                const rbWpts = GPXParser.extractWaypoints(rbXml);
+
+                const traceRes = await fetch("AxeQuad - Formation Roadbook v26.03.08/bana77@outlook.fr_.gpx");
+                const traceText = await traceRes.text();
+                const traceXml = new DOMParser().parseFromString(traceText, "text/xml");
+                const traceTracks = GPXParser.extractTrackPoints(traceXml);
+
+                let log = "Roadbook waypoints (" + rbWpts.length + "):\n";
+                if (rbWpts.length > 0) {
+                    log += JSON.stringify(rbWpts[0], null, 2) + "\n";
+                }
+
+                // Simulate scoring
+                const config = {
+                    wptPenalties: { default: 900 },
+                    speedLimit: 130,
+                    speedCoef: 60
+                };
+                const engine = new ScoringEngine({ waypoints: rbWpts }, config);
+                const competitor = { tracks: traceTracks };
+                const score = engine.calculateCompetitor(competitor);
+
+                log += "\nScore:\n";
+                log += "PenaltiesBox length: " + score.penaltiesBox.length + "\n";
+                
+                let missed = score.wpLog.filter(w => w.status !== 'VALID').map(w => w.waypoint.name).join(', ');
+                log += "Missed wpts: " + missed + "\n";
+                
+                let valid = score.wpLog.filter(w => w.status === 'VALID').map(w => w.waypoint.name).join(', ');
+                log += "Valid wpts: " + valid + "\n";
+
+                log += "\nPenalties: \n";
+                score.penaltiesBox.forEach(p => {
+                    log += p.desc + "\n";
+                });
+
+                document.getElementById('output').textContent = log;
+            } catch (err) {
+                document.getElementById('output').textContent = err.stack;
+            }
+        }
+        test();
+    </script>
+</body>
+</html>

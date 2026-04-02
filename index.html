@@ -140,8 +140,21 @@
             </div>
         </section>
         
-        <!-- Hidden Map for PDF Generation -->
-        <div id="pdf-map-container" style="display: none; width: 800px; height: 600px;"></div>
+        <!-- Carte Interactive -->
+        <section class="map-section">
+            <div class="card full-width">
+                <div class="map-header">
+                    <h2>Carte du Parcours</h2>
+                    <div class="map-controls" id="map-controls">
+                        <!-- Les toggles concurrents seront ajoutés dynamiquement -->
+                    </div>
+                </div>
+                <div id="main-map"></div>
+            </div>
+        </section>
+
+        <!-- Canvas caché pour génération PDF -->
+        <canvas id="pdf-canvas" width="800" height="500" style="display:none"></canvas>
     </main>
 
     <!-- Libs -->

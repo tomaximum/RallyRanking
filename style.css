@@ -324,3 +324,77 @@ tbody tr:hover {
     gap: 1rem;
     margin-top: 2rem;
 }
+
+/* ── Carte Interactive ─────────────────────────────────────────── */
+.map-section {
+    width: 100%;
+}
+
+.map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.map-header h2 {
+    font-size: 1.1rem;
+}
+
+.map-controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+#main-map {
+    width: 100%;
+    height: 480px;
+    border-radius: calc(var(--radius) - 4px);
+    border: 1px solid var(--border);
+    background: var(--bg-base);
+    z-index: 1;
+}
+
+/* ── Tableau — nom concurrent éditable ─────────────────────────── */
+.td-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.comp-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.comp-name {
+    cursor: pointer;
+}
+
+.comp-name:hover {
+    text-decoration: underline dotted var(--text-secondary);
+}
+
+.rename-input {
+    background: var(--bg-elevated);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0.1rem 0.4rem;
+    outline: none;
+    width: 140px;
+}
+
+/* Surbrillance ligne sélectionnée */
+tbody tr.selected {
+    background-color: rgba(255, 71, 87, 0.08);
+    outline: 1px solid var(--accent);
+}
