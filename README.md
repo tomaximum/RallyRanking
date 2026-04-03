@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Web-blue.svg)](#)
 [![Version](https://img.shields.io/badge/Version-2.3-orange.svg)](#)
 
-![RallyRanking Banner](docs/images/banner.png)
+![RallyRanking Banner](docs/images/banner_moto_v2.png)
 
 ## 🚀 Présentation
 
