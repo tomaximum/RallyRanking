@@ -23,7 +23,7 @@ Le mode classique pour les épreuves de vitesse pure.
 - Gestion automatique des waypoints manqués et des zones de vitesse contrôlées (VMAX).
 
 ### 🏆 Mode Régularité (**NOUVEAU**)
-Spécialement conçu pour les épreuves de régularité (VHR / VHRS).
+Spécialement conçu pour les épreuves de découverte ou amateur ().
 - **Temps de Référence** : Définissez un temps cible au format `HH:MM:SS`.
 - **Calcul de pénalité** : Seul le dépassement (retard) est pénalisé, avec un score final exprimé en secondes.
 - **Affichage Dédié** : Un tableau de classement optimisé pour une lecture rapide des écarts.
