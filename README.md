@@ -62,4 +62,4 @@ Spécialement conçu pour les épreuves de découverte ou amateur ().
 
 ---
 
-Conçu avec passion pour le sport automobile 🏁 par **[Tomaximum](https://github.com/tomaximum)**.
+Conçu avec passion pour le Rally 🏁 par Antigravity, Gemini et [Tomaximum](https://github.com/tomaximum).
